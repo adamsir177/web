@@ -1,6 +1,6 @@
 <div id="angle">---</div>
 <script>
-  const ESP_IP = "192.168.x.x"; // sem dáš IP ESP z hotspotu
+  const ESP_IP = "172.20.10.2"; // sem dáš IP ESP z hotspotu
   async function update() {
     try {
       const r = await fetch(`http://${ESP_IP}/angle`, { cache: "no-store" });
