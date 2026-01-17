@@ -1,19 +1,46 @@
-<div id="angle">---</div>
+<style>
+  html, body {
+    margin: 0;
+    height: 100%;
+    background: #000;
+    color: #fff;
+    font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+  }
+
+  .wrap {
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  #angle {
+    font-size: min(40vw, 220px); /* obří, ale nepřetéká */
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.03em;
+    text-align: center;
+  }
+</style>
+
+<div class="wrap">
+  <div id="angle">---</div>
+</div>
 
 <script>
-  const ESP_IP = "172.20.10.2";   // IP tvého ESP
+  const ESP_IP = "172.20.10.2";
   const URL = `http://${ESP_IP}/angle`;
 
   async function updateAngle() {
     try {
       const r = await fetch(URL, { cache: "no-store" });
-      const t = await r.text();
-      document.getElementById("angle").innerText = t + "°";
+      const t = (await r.text()).trim();
+      document.getElementById("angle").innerText = `${t}°`;
     } catch (e) {
       document.getElementById("angle").innerText = "offline";
     }
   }
 
-  setInterval(updateAngle, 200); // každých 200 ms
+  setInterval(updateAngle, 200);
   updateAngle();
 </script>
