@@ -1,26 +1,15 @@
-<!DOCTYPE html>
-<html lang="cs">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Moje Webovka</title>
-  <link rel="stylesheet" href="style.css">
-</head>
-<body>
-  <div class="container">
-    <h1>Ahoj, já jsem <span class="highlight">Tvoje Webovka</span> 👋</h1>
-    <p class="subtitle">Zatím jednoduchá, ale připravená růst!</p>
-
-    <!-- 💫 Sem vlož svůj GIF -->
-    <div class="gif-wrapper">
-      <img src="https://i.makeagif.com/media/12-22-2022/98_Soz.gif" alt="Můj GIF">
-    </div>
-
-    <a href="https://github.com/adamsir177" class="btn">Nabíhej na můj GitHub</a>
-  </div>
-
-  <footer>
-    <p>© 2025 Tvoje Webovka – vytvořeno s ❤️ a GitHub Pages</p>
-  </footer>
-</body>
-</html>
+<div id="angle">---</div>
+<script>
+  const ESP_IP = "192.168.x.x"; // sem dáš IP ESP z hotspotu
+  async function update() {
+    try {
+      const r = await fetch(`http://${ESP_IP}/angle`, { cache: "no-store" });
+      const t = await r.text();
+      document.getElementById("angle").textContent = t + "°";
+    } catch (e) {
+      document.getElementById("angle").textContent = "offline";
+    }
+  }
+  setInterval(update, 200); // 200ms = plynulé
+  update();
+</script>
