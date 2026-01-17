@@ -1,15 +1,19 @@
 <div id="angle">---</div>
+
 <script>
-  const ESP_IP = "172.20.10.2"; // sem dáš IP ESP z hotspotu
-  async function update() {
+  const ESP_IP = "172.20.10.2";   // IP tvého ESP
+  const URL = `http://${ESP_IP}/angle`;
+
+  async function updateAngle() {
     try {
-      const r = await fetch(`http://${ESP_IP}/angle`, { cache: "no-store" });
+      const r = await fetch(URL, { cache: "no-store" });
       const t = await r.text();
-      document.getElementById("angle").textContent = t + "°";
+      document.getElementById("angle").innerText = t + "°";
     } catch (e) {
-      document.getElementById("angle").textContent = "offline";
+      document.getElementById("angle").innerText = "offline";
     }
   }
-  setInterval(update, 200); // 200ms = plynulé
-  update();
+
+  setInterval(updateAngle, 200); // každých 200 ms
+  updateAngle();
 </script>
