@@ -35,7 +35,9 @@
     try {
       const r = await fetch(URL, { cache: "no-store" });
       const t = (await r.text()).trim();
-      document.getElementById("angle").innerText = `${t}°`;
+const whole = Math.round(parseFloat(t));
+document.getElementById("angle").innerText = `${whole}°`;
+
     } catch (e) {
       document.getElementById("angle").innerText = "offline";
     }
