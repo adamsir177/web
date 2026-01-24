@@ -8,8 +8,10 @@
     :root{
       --bg: #000;
       --fg: #fff;
-      --green: #34C759; /* iOS green */
+      --green: #34C759;
       --muted: rgba(255,255,255,.35);
+      --muted2: rgba(255,255,255,.20);
+      --glass: rgba(255,255,255,.06);
     }
 
     html, body {
@@ -20,7 +22,6 @@
       font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
     }
 
-    /* Fullscreen “screen” */
     .screen{
       position: fixed;
       inset: 0;
@@ -32,7 +33,53 @@
       -webkit-tap-highlight-color: transparent;
     }
 
-    /* Normal (black) mode */
+    /* subtle vignette + grain to look “more advanced” */
+    .vignette{
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background:
+        radial-gradient(1200px 600px at 50% 45%, rgba(255,255,255,.05), transparent 65%),
+        radial-gradient(900px 900px at 50% 50%, transparent 55%, rgba(0,0,0,.65));
+      mix-blend-mode: screen;
+      opacity: .7;
+    }
+    .grain{
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='.18'/%3E%3C/svg%3E");
+      opacity: .08;
+      mix-blend-mode: overlay;
+    }
+
+    .hud{
+      position: absolute;
+      top: 18px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 10px;
+      align-items: center;
+      color: var(--muted);
+      font-size: 12px;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+    .pill{
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.04);
+      backdrop-filter: blur(10px);
+    }
+    .pill.ok{
+      color: rgba(255,255,255,.92);
+      border-color: rgba(52,199,89,.35);
+      background: rgba(52,199,89,.12);
+    }
+
+    /* NORMAL (black) mode */
     .normal{
       position: absolute;
       inset: 0;
@@ -43,24 +90,48 @@
     }
 
     .angleText{
-      font-size: clamp(56px, 10vw, 120px);
+      font-size: clamp(52px, 9vw, 110px);
       font-weight: 500;
       letter-spacing: -0.02em;
       font-variant-numeric: tabular-nums;
       line-height: 1;
     }
 
-    /* two tiny “ticks” like iPhone level */
+    /* center crosshair micro marks */
+    .centerMarks{
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 180px;
+      height: 180px;
+      transform: translate(-50%, -50%);
+      pointer-events: none;
+      opacity: .75;
+    }
+    .centerMarks::before, .centerMarks::after{
+      content: "";
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      background: rgba(255,255,255,.22);
+      border-radius: 999px;
+      transform: translate(-50%, -50%);
+    }
+    .centerMarks::before{ width: 90px; height: 2px; }
+    .centerMarks::after{ width: 2px; height: 90px; opacity: .12; }
+
+    /* the two “end ticks” */
     .tickGroup{
       position: absolute;
       left: 50%;
       top: 50%;
-      width: min(70vw, 820px);
+      width: min(72vw, 860px);
       height: 2px;
       transform: translate(-50%, -50%) rotate(0deg);
       transform-origin: center;
       pointer-events: none;
       transition: opacity .18s ease;
+      filter: drop-shadow(0 12px 26px rgba(0,0,0,.55));
     }
 
     .tick{
@@ -76,7 +147,7 @@
     .tick.left { left: 0; }
     .tick.right { right: 0; }
 
-    /* Level (green) mode */
+    /* LEVEL (green) mode */
     .level{
       position: absolute;
       inset: 0;
@@ -86,16 +157,14 @@
       transition: opacity .18s ease;
     }
 
-    /* gradient split like iPhone (white / green) */
     .levelBg{
       position: absolute;
-      inset: -10vmax; /* overscan so rotation doesn’t show corners */
+      inset: -10vmax;
       background: linear-gradient(0deg, #fff 50%, var(--green) 50%);
       transform: rotate(0deg);
       transform-origin: center;
     }
 
-    /* bubble markers */
     .bubbleWrap{
       position: relative;
       width: min(70vmin, 520px);
@@ -121,39 +190,42 @@
       border-radius: 999px;
       border: 4px solid rgba(255,255,255,.95);
       background: transparent;
-      transform: translate(60px, -18px); /* will be animated */
+      transform: translate(60px, -18px);
     }
 
     /* show/hide modes */
     .screen.isLevel .normal{ opacity: 0; }
     .screen.isLevel .level{ opacity: 1; }
 
-    /* tiny debug/status (optional) */
-    .status{
-      position: absolute;
-      bottom: 18px;
-      left: 50%;
-      transform: translateX(-50%);
-      font-size: 12px;
-      color: var(--muted);
-      letter-spacing: .08em;
-      text-transform: uppercase;
+    /* important: show angle text also in level mode */
+    .screen.isLevel .angleText{
+      color: rgba(255,255,255,.98);
+      text-shadow: 0 10px 30px rgba(0,0,0,.25);
     }
   </style>
 </head>
 
 <body>
   <div class="screen" id="screen">
+    <div class="vignette"></div>
+    <div class="grain"></div>
+
+    <div class="hud">
+      <div class="pill" id="pillState">online</div>
+      <div class="pill">ESP <span id="ip">172.20.10.2</span></div>
+    </div>
+
     <!-- Normal black view -->
     <div class="normal">
       <div class="angleText" id="angleText">---</div>
+      <div class="centerMarks"></div>
       <div class="tickGroup" id="tickGroup">
         <div class="tick left"></div>
         <div class="tick right"></div>
       </div>
     </div>
 
-    <!-- Green “level” view -->
+    <!-- Level green view -->
     <div class="level">
       <div class="levelBg" id="levelBg"></div>
       <div class="bubbleWrap">
@@ -161,21 +233,19 @@
         <div class="bubbleDot" id="bubbleDot"></div>
       </div>
     </div>
-
-    <div class="status" id="status">online</div>
   </div>
 
   <script>
     // ====== SETTINGS ======
     const ESP_IP = "172.20.10.2";
+    document.getElementById("ip").textContent = ESP_IP;
+
     const URL = `http://${ESP_IP}/angle`;
 
-    // Thresholds like your OLED logic (0° or 90° “green”)
     const THRESH_LOW = 1.5;
     const THRESH_HIGH = 88.5;
 
-    // UI smoothing
-    const EASE = 0.18; // 0.12 slower, 0.25 faster
+    const EASE = 0.18;
     const POLL_MS = 200;
 
     // ====== DOM ======
@@ -184,11 +254,11 @@
     const tickGroup = document.getElementById("tickGroup");
     const levelBg = document.getElementById("levelBg");
     const bubbleDot = document.getElementById("bubbleDot");
-    const status = document.getElementById("status");
+    const pillState = document.getElementById("pillState");
 
     // ====== STATE ======
-    let target = 0;     // raw angle (float)
-    let shown = 0;      // smoothed angle
+    let target = 0;
+    let shown = 0;
     let isOnline = true;
 
     async function poll() {
@@ -204,37 +274,45 @@
       }
     }
 
+    function clamp(v, a, b){ return Math.max(a, Math.min(b, v)); }
+
     function render() {
-      // smooth animation
       shown += (target - shown) * EASE;
 
-      // whole number like OLED
       const whole = Math.round(shown);
+      angleText.textContent = isOnline ? `${whole}°` : "offline";
 
-      // mode switch (green when near 0 or 90)
       const levelMode = isOnline && (shown <= THRESH_LOW || shown >= THRESH_HIGH);
       screen.classList.toggle("isLevel", levelMode);
 
-      // status
-      status.textContent = !isOnline ? "offline" : (levelMode ? "level" : "online");
+      // HUD pill state
+      if (!isOnline) {
+        pillState.textContent = "offline";
+        pillState.classList.remove("ok");
+      } else if (levelMode) {
+        pillState.textContent = "level";
+        pillState.classList.add("ok");
+      } else {
+        pillState.textContent = "online";
+        pillState.classList.remove("ok");
+      }
 
-      // normal view: number + rotating ticks (simple + clean)
-      if (isOnline) angleText.textContent = `${whole}°`;
-      else angleText.textContent = "offline";
+      // ====== IMPORTANT FIX YOU WANTED ======
+      // When in "level mode" (near 0 or 90), force line to exact 0° (horizontal) or 90° (vertical)
+      let lineAngle = shown;
+      if (levelMode) {
+        lineAngle = (shown <= THRESH_LOW) ? 0 : 90;
+      }
+      tickGroup.style.transform = `translate(-50%, -50%) rotate(${lineAngle}deg)`;
 
-      // ticks: rotate by angle (since you send 0..90, it will rotate one direction)
-      tickGroup.style.transform = `translate(-50%, -50%) rotate(${shown}deg)`;
-
-      // level view: rotate the split background slightly for “feel”
-      // (optional; if you want it always flat when green, set 0deg)
-      const bgRot = Math.max(-8, Math.min(8, (shown - 45) * 0.18)); // subtle motion
+      // green screen: keep background stable and nice
+      // (you can also make it 0deg always)
+      const bgRot = 0;
       levelBg.style.transform = `rotate(${bgRot}deg)`;
 
-      // bubble dot: small subtle movement (still “iPhone-ish”)
-      // map 0..90 to small offset range
-      const x = (shown / 90) * 70 - 35;   // -35..+35
-      const y = -18;
-      bubbleDot.style.transform = `translate(${60 + x}px, ${y}px)`;
+      // bubble: small movement (still cool)
+      const x = (lineAngle / 90) * 70 - 35; // based on forced angle in level mode
+      bubbleDot.style.transform = `translate(${60 + x}px, -18px)`;
 
       requestAnimationFrame(render);
     }
