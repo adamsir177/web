@@ -34,7 +34,6 @@
       -webkit-tap-highlight-color: transparent;
     }
 
-    /* subtle vignette + grain */
     .vignette {
       position: absolute;
       inset: 0;
@@ -83,7 +82,6 @@
       background: rgba(52,199,89,.12);
     }
 
-    /* NORMAL mode */
     .normal {
       position: absolute;
       inset: 0;
@@ -123,16 +121,8 @@
       transform: translate(-50%, -50%);
     }
 
-    .centerMarks::before {
-      width: 90px;
-      height: 2px;
-    }
-
-    .centerMarks::after {
-      width: 2px;
-      height: 90px;
-      opacity: .12;
-    }
+    .centerMarks::before { width: 90px; height: 2px; }
+    .centerMarks::after  { width: 2px; height: 90px; opacity: .12; }
 
     .tickGroup {
       position: absolute;
@@ -159,7 +149,6 @@
     .tick.left { left: 0; }
     .tick.right { right: 0; }
 
-    /* LEVEL mode */
     .level {
       position: absolute;
       inset: 0;
@@ -203,7 +192,7 @@
     }
 
     .screen.isLevel .normal { opacity: 0; }
-    .screen.isLevel .level { opacity: 1; }
+    .screen.isLevel .level  { opacity: 1; }
 
     .screen.isLevel .angleText {
       color: rgba(255,255,255,.98);
@@ -245,15 +234,17 @@
     document.getElementById("ip").textContent = ESP_IP;
 
     const URL = `http://${ESP_IP}/angle`;
-    const THRESH_LOW = 1.5;
-    const THRESH_HIGH = 88.5;
+
+    // "SNAP" ve webu pryč: level režim jen téměř přesně u 0 nebo 90
+    const THRESH_LOW = 0.05;    // ~0.0
+    const THRESH_HIGH = 89.95;  // ~90.0
+
     const EASE = 0.18;
     const POLL_MS = 200;
 
     const screen = document.getElementById("screen");
     const angleText = document.getElementById("angleText");
     const tickGroup = document.getElementById("tickGroup");
-    const levelBg = document.getElementById("levelBg");
     const bubbleDot = document.getElementById("bubbleDot");
     const pillState = document.getElementById("pillState");
 
@@ -276,20 +267,38 @@
 
     function render() {
       shown += (target - shown) * EASE;
-      angleText.textContent = isOnline ? `${Math.round(shown)}°` : "offline";
 
-      const levelMode = isOnline && (shown <= THRESH_LOW || shown >= THRESH_HIGH);
+      // rozhodnutí "level" jen fakt u 0/90
+      const isZero = isOnline && (shown <= THRESH_LOW);
+      const isNinety = isOnline && (shown >= THRESH_HIGH);
+      const levelMode = isZero || isNinety;
+
       screen.classList.toggle("isLevel", levelMode);
 
+      // Text: v level režimu ukázat explicitně 0° nebo 90°
+      if (!isOnline) {
+        angleText.textContent = "offline";
+      } else if (isZero) {
+        angleText.textContent = "0°";
+      } else if (isNinety) {
+        angleText.textContent = "90°";
+      } else {
+        angleText.textContent = `${Math.round(shown)}°`;
+      }
+
+      // Čára: při 0 vodorovně, při 90 svisle, jinak dle úhlu
       let lineAngle = shown;
-      if (levelMode) lineAngle = shown <= THRESH_LOW ? 0 : 90;
+      if (isZero) lineAngle = 0;
+      if (isNinety) lineAngle = 90;
 
       tickGroup.style.transform =
         `translate(-50%, -50%) rotate(${lineAngle}deg)`;
 
+      // bubble: pohyb podle lineAngle (takže 0 = střed, 90 = druhý extrém)
       const x = (lineAngle / 90) * 70 - 35;
       bubbleDot.style.transform = `translate(${60 + x}px, -18px)`;
 
+      // HUD pill
       pillState.textContent = !isOnline
         ? "offline"
         : levelMode ? "level" : "online";
