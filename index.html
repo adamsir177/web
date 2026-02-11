@@ -66,6 +66,7 @@
       font-size: 12px;
       letter-spacing: .12em;
       text-transform: uppercase;
+      z-index: 10;
     }
 
     .pill {
@@ -97,6 +98,7 @@
       letter-spacing: -0.02em;
       font-variant-numeric: tabular-nums;
       line-height: 1;
+      z-index: 5;
     }
 
     .centerMarks {
@@ -134,6 +136,7 @@
       transform-origin: center;
       pointer-events: none;
       filter: drop-shadow(0 12px 26px rgba(0,0,0,.55));
+      z-index: 4;
     }
 
     .tick {
@@ -158,10 +161,13 @@
       transition: opacity .18s ease;
     }
 
+    /* default: horizontal split (top/bottom) */
     .levelBg {
       position: absolute;
       inset: -10vmax;
       background: linear-gradient(0deg, #fff 50%, var(--green) 50%);
+      transform: rotate(0deg);
+      transform-origin: center;
     }
 
     .bubbleWrap {
@@ -171,6 +177,7 @@
       display: grid;
       place-items: center;
       pointer-events: none;
+      z-index: 3;
     }
 
     .bubbleRing {
@@ -191,12 +198,25 @@
       transform: translate(60px, -18px);
     }
 
+    /* show/hide modes */
     .screen.isLevel .normal { opacity: 0; }
     .screen.isLevel .level  { opacity: 1; }
 
     .screen.isLevel .angleText {
       color: rgba(255,255,255,.98);
       text-shadow: 0 10px 30px rgba(0,0,0,.25);
+    }
+
+    /* ====== DESIGN DIFFERENCE ====== */
+
+    /* 0°: bublinu schovat, nech jen text 0° */
+    .screen.isZero .bubbleWrap {
+      display: none;
+    }
+
+    /* 90°: udělat vertikální split (left/right) */
+    .screen.isNinety .levelBg {
+      transform: rotate(90deg);
     }
   </style>
 </head>
@@ -229,93 +249,89 @@
     </div>
   </div>
 
-<script>
-  const ESP_IP = "172.20.10.2";
-  document.getElementById("ip").textContent = ESP_IP;
+  <script>
+    const ESP_IP = "172.20.10.2";
+    document.getElementById("ip").textContent = ESP_IP;
 
-  const URL = `http://${ESP_IP}/angle`;
+    const URL = `http://${ESP_IP}/angle`;
 
-  const THRESH_LOW = 1.5;
-  const THRESH_HIGH = 88.5;
+    // Level režim jen skoro přesně u 0 / 90
+    const THRESH_LOW = 0.05;
+    const THRESH_HIGH = 89.95;
 
-  const EASE = 0.18;
-  const POLL_MS = 200;
+    const EASE = 0.18;
+    const POLL_MS = 200;
 
-  const screen = document.getElementById("screen");
-  const angleText = document.getElementById("angleText");
-  const tickGroup = document.getElementById("tickGroup");
-  const levelBg = document.getElementById("levelBg");
-  const bubbleDot = document.getElementById("bubbleDot");
-  const pillState = document.getElementById("pillState");
+    const screen = document.getElementById("screen");
+    const angleText = document.getElementById("angleText");
+    const tickGroup = document.getElementById("tickGroup");
+    const bubbleDot = document.getElementById("bubbleDot");
+    const pillState = document.getElementById("pillState");
 
-  let target = 0;
-  let shown = 0;
-  let isOnline = true;
+    let target = 0;
+    let shown = 0;
+    let isOnline = true;
 
-  async function poll() {
-    try {
-      const r = await fetch(URL, { cache: "no-store" });
-      const t = (await r.text()).trim();
-      const v = parseFloat(t);
-      if (!Number.isFinite(v)) throw new Error("NaN");
-      target = v;
-      isOnline = true;
-    } catch {
-      isOnline = false;
-    }
-  }
-
-  function render() {
-    shown += (target - shown) * EASE;
-
-    angleText.textContent = isOnline
-      ? `${shown.toFixed(1)}°`
-      : "offline";
-
-    const nearZero = shown <= THRESH_LOW;
-    const nearNinety = shown >= THRESH_HIGH;
-    const levelMode = isOnline && (nearZero || nearNinety);
-
-    screen.classList.toggle("isLevel", levelMode);
-
-    // ======== LINE BEHAVIOR ========
-    let lineAngle = shown;
-
-    if (nearZero) {
-      lineAngle = 0;      // vodorovná
+    async function poll() {
+      try {
+        const r = await fetch(URL, { cache: "no-store" });
+        const t = (await r.text()).trim();
+        const v = parseFloat(t);
+        if (!Number.isFinite(v)) throw new Error("NaN");
+        target = v;
+        isOnline = true;
+      } catch {
+        isOnline = false;
+      }
     }
 
-    if (nearNinety) {
-      lineAngle = 90;     // svislá
+    function render() {
+      shown += (target - shown) * EASE;
+
+      const isZero = isOnline && (shown <= THRESH_LOW);
+      const isNinety = isOnline && (shown >= THRESH_HIGH);
+      const levelMode = isZero || isNinety;
+
+      screen.classList.toggle("isLevel", levelMode);
+      screen.classList.toggle("isZero", isZero);
+      screen.classList.toggle("isNinety", isNinety);
+
+      // text
+      if (!isOnline) {
+        angleText.textContent = "offline";
+      } else if (isZero) {
+        angleText.textContent = "0°";
+      } else if (isNinety) {
+        angleText.textContent = "90°";
+      } else {
+        angleText.textContent = `${Math.round(shown)}°`;
+      }
+
+      // čára (mimo level režim se normálně otáčí)
+      let lineAngle = shown;
+      if (isZero) lineAngle = 0;
+      if (isNinety) lineAngle = 90;
+
+      tickGroup.style.transform =
+        `translate(-50%, -50%) rotate(${lineAngle}deg)`;
+
+      // bublina: necháme ji jen pro "level" 90° (pro 0° ji schovává CSS)
+      const x = (lineAngle / 90) * 70 - 35;
+      bubbleDot.style.transform = `translate(${60 + x}px, -18px)`;
+
+      // pill
+      pillState.textContent = !isOnline
+        ? "offline"
+        : levelMode ? "level" : "online";
+
+      pillState.classList.toggle("ok", levelMode);
+
+      requestAnimationFrame(render);
     }
 
-    tickGroup.style.transform =
-      `translate(-50%, -50%) rotate(${lineAngle}deg)`;
-
-    // ======== BUBBLE BEHAVIOR ========
-    let bubbleX = 60 + ((shown / 90) * 70 - 35);
-
-    // pokud 90°, drž bublinu na středu vertikálně
-    if (nearNinety) {
-      bubbleX = 60;
-    }
-
-    bubbleDot.style.transform = `translate(${bubbleX}px, -18px)`;
-
-    // ======== HUD ========
-    pillState.textContent = !isOnline
-      ? "offline"
-      : levelMode ? "level" : "online";
-
-    pillState.classList.toggle("ok", levelMode);
-
-    requestAnimationFrame(render);
-  }
-
-  setInterval(poll, POLL_MS);
-  poll();
-  render();
-</script>
-
+    setInterval(poll, POLL_MS);
+    poll();
+    render();
+  </script>
 </body>
 </html>
