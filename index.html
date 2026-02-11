@@ -11,7 +11,6 @@
       --fg: #fff;
       --green: #34C759;
       --muted: rgba(255,255,255,.35);
-      --muted2: rgba(255,255,255,.20);
       --glass: rgba(255,255,255,.06);
     }
 
@@ -56,9 +55,8 @@
       z-index: 20;
     }
 
-    .hud {
+    .hud, .hudBottom {
       position: absolute;
-      top: 18px;
       left: 50%;
       transform: translateX(-50%);
       display: flex;
@@ -71,18 +69,31 @@
       z-index: 30;
     }
 
+    .hud { top: 18px; }
+    .hudBottom { bottom: 18px; }
+
     .pill {
       padding: 8px 12px;
       border-radius: 999px;
       border: 1px solid rgba(255,255,255,.14);
       background: rgba(255,255,255,.04);
       backdrop-filter: blur(10px);
+      cursor: default;
+      user-select: none;
     }
 
     .pill.ok {
       color: rgba(255,255,255,.92);
       border-color: rgba(52,199,89,.35);
       background: rgba(52,199,89,.12);
+    }
+
+    .pill.btn {
+      cursor: pointer;
+    }
+
+    .pill.btn:active {
+      transform: translateY(1px);
     }
 
     /* NORMAL mode */
@@ -102,6 +113,7 @@
       letter-spacing: -0.02em;
       font-variant-numeric: tabular-nums;
       line-height: 1;
+      z-index: 5;
     }
 
     .centerMarks {
@@ -139,6 +151,7 @@
       transform-origin: center;
       pointer-events: none;
       filter: drop-shadow(0 12px 26px rgba(0,0,0,.55));
+      z-index: 4;
     }
 
     .tick {
@@ -168,12 +181,11 @@
     /* default = 0°: horizontal split (top/bottom) */
     .levelBg {
       position: absolute;
-      inset: 0; /* full screen */
+      inset: 0;
       background: linear-gradient(0deg, #fff 50%, var(--green) 50%);
       z-index: 0;
     }
 
-    /* text shown in LEVEL mode */
     .levelText {
       position: absolute;
       left: 50%;
@@ -189,7 +201,6 @@
       pointer-events: none;
     }
 
-    /* bubble */
     .bubbleWrap {
       position: relative;
       width: min(70vmin, 520px);
@@ -225,12 +236,10 @@
     /* 0°: bubble hide */
     .screen.isZero .bubbleWrap { display: none; }
 
-    /* 90°: use vertical split (left/right) WITHOUT rotation => no black borders */
+    /* 90°: vertical split + hide bubble */
     .screen.isNinety .levelBg {
       background: linear-gradient(90deg, #fff 50%, var(--green) 50%);
     }
-
-    /* 90°: also hide bubble (as you asked) */
     .screen.isNinety .bubbleWrap { display: none; }
   </style>
 </head>
@@ -240,11 +249,20 @@
     <div class="vignette"></div>
     <div class="grain"></div>
 
+    <!-- TOP HUD -->
     <div class="hud">
       <div class="pill" id="pillState">online</div>
       <div class="pill">ESP <span id="ip">172.20.10.2</span></div>
     </div>
 
+    <!-- BOTTOM HUD -->
+    <div class="hudBottom">
+      <div class="pill btn" id="precisionBtn" role="button" aria-label="Toggle precision">
+        NORMAL
+      </div>
+    </div>
+
+    <!-- NORMAL -->
     <div class="normal">
       <div class="angleText" id="angleText">---</div>
       <div class="centerMarks"></div>
@@ -254,9 +272,10 @@
       </div>
     </div>
 
+    <!-- LEVEL -->
     <div class="level">
       <div class="levelBg" id="levelBg"></div>
-      <div class="levelText" id="levelText">0°</div>
+      <div class="levelText" id="levelText"></div>
 
       <div class="bubbleWrap">
         <div class="bubbleRing"></div>
@@ -284,6 +303,28 @@
     const tickGroup = document.getElementById("tickGroup");
     const bubbleDot = document.getElementById("bubbleDot");
     const pillState = document.getElementById("pillState");
+
+    const precisionBtn = document.getElementById("precisionBtn");
+    let precisionMode = false;
+
+    // optional: persist setting
+    try {
+      precisionMode = localStorage.getItem("precisionMode") === "1";
+    } catch {}
+
+    function setPrecisionUI() {
+      precisionBtn.textContent = precisionMode ? "PRECISION" : "NORMAL";
+      try {
+        localStorage.setItem("precisionMode", precisionMode ? "1" : "0");
+      } catch {}
+    }
+
+    precisionBtn.addEventListener("click", () => {
+      precisionMode = !precisionMode;
+      setPrecisionUI();
+    });
+
+    setPrecisionUI();
 
     let target = 0;
     let shown = 0;
@@ -313,17 +354,20 @@
       screen.classList.toggle("isZero", isZero);
       screen.classList.toggle("isNinety", isNinety);
 
+      // TEXT
       if (!isOnline) {
         angleText.textContent = "offline";
         levelText.textContent = "";
       } else {
-        angleText.textContent = `${Math.round(shown)}°`;
+        const normalTxt = precisionMode ? `${shown.toFixed(1)}°` : `${Math.round(shown)}°`;
+        angleText.textContent = normalTxt;
+
         if (isZero) levelText.textContent = "0°";
         else if (isNinety) levelText.textContent = "90°";
         else levelText.textContent = "";
       }
 
-      // čára (mimo level režim se normálně otáčí)
+      // LINE
       let lineAngle = shown;
       if (isZero) lineAngle = 0;
       if (isNinety) lineAngle = 90;
@@ -335,6 +379,7 @@
       const x = (lineAngle / 90) * 70 - 35;
       bubbleDot.style.transform = `translate(${60 + x}px, -18px)`;
 
+      // HUD pill state
       pillState.textContent = !isOnline
         ? "offline"
         : levelMode ? "level" : "online";
