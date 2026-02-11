@@ -229,88 +229,93 @@
     </div>
   </div>
 
-  <script>
-    const ESP_IP = "172.20.10.2";
-    document.getElementById("ip").textContent = ESP_IP;
+<script>
+  const ESP_IP = "172.20.10.2";
+  document.getElementById("ip").textContent = ESP_IP;
 
-    const URL = `http://${ESP_IP}/angle`;
+  const URL = `http://${ESP_IP}/angle`;
 
-    // "SNAP" ve webu pryč: level režim jen téměř přesně u 0 nebo 90
-    const THRESH_LOW = 0.05;    // ~0.0
-    const THRESH_HIGH = 89.95;  // ~90.0
+  const THRESH_LOW = 1.5;
+  const THRESH_HIGH = 88.5;
 
-    const EASE = 0.18;
-    const POLL_MS = 200;
+  const EASE = 0.18;
+  const POLL_MS = 200;
 
-    const screen = document.getElementById("screen");
-    const angleText = document.getElementById("angleText");
-    const tickGroup = document.getElementById("tickGroup");
-    const bubbleDot = document.getElementById("bubbleDot");
-    const pillState = document.getElementById("pillState");
+  const screen = document.getElementById("screen");
+  const angleText = document.getElementById("angleText");
+  const tickGroup = document.getElementById("tickGroup");
+  const levelBg = document.getElementById("levelBg");
+  const bubbleDot = document.getElementById("bubbleDot");
+  const pillState = document.getElementById("pillState");
 
-    let target = 0;
-    let shown = 0;
-    let isOnline = true;
+  let target = 0;
+  let shown = 0;
+  let isOnline = true;
 
-    async function poll() {
-      try {
-        const r = await fetch(URL, { cache: "no-store" });
-        const t = (await r.text()).trim();
-        const v = parseFloat(t);
-        if (!Number.isFinite(v)) throw new Error("NaN");
-        target = v;
-        isOnline = true;
-      } catch {
-        isOnline = false;
-      }
+  async function poll() {
+    try {
+      const r = await fetch(URL, { cache: "no-store" });
+      const t = (await r.text()).trim();
+      const v = parseFloat(t);
+      if (!Number.isFinite(v)) throw new Error("NaN");
+      target = v;
+      isOnline = true;
+    } catch {
+      isOnline = false;
+    }
+  }
+
+  function render() {
+    shown += (target - shown) * EASE;
+
+    angleText.textContent = isOnline
+      ? `${shown.toFixed(1)}°`
+      : "offline";
+
+    const nearZero = shown <= THRESH_LOW;
+    const nearNinety = shown >= THRESH_HIGH;
+    const levelMode = isOnline && (nearZero || nearNinety);
+
+    screen.classList.toggle("isLevel", levelMode);
+
+    // ======== LINE BEHAVIOR ========
+    let lineAngle = shown;
+
+    if (nearZero) {
+      lineAngle = 0;      // vodorovná
     }
 
-    function render() {
-      shown += (target - shown) * EASE;
-
-      // rozhodnutí "level" jen fakt u 0/90
-      const isZero = isOnline && (shown <= THRESH_LOW);
-      const isNinety = isOnline && (shown >= THRESH_HIGH);
-      const levelMode = isZero || isNinety;
-
-      screen.classList.toggle("isLevel", levelMode);
-
-      // Text: v level režimu ukázat explicitně 0° nebo 90°
-      if (!isOnline) {
-        angleText.textContent = "offline";
-      } else if (isZero) {
-        angleText.textContent = "0°";
-      } else if (isNinety) {
-        angleText.textContent = "90°";
-      } else {
-        angleText.textContent = `${Math.round(shown)}°`;
-      }
-
-      // Čára: při 0 vodorovně, při 90 svisle, jinak dle úhlu
-      let lineAngle = shown;
-      if (isZero) lineAngle = 0;
-      if (isNinety) lineAngle = 90;
-
-      tickGroup.style.transform =
-        `translate(-50%, -50%) rotate(${lineAngle}deg)`;
-
-      // bubble: pohyb podle lineAngle (takže 0 = střed, 90 = druhý extrém)
-      const x = (lineAngle / 90) * 70 - 35;
-      bubbleDot.style.transform = `translate(${60 + x}px, -18px)`;
-
-      // HUD pill
-      pillState.textContent = !isOnline
-        ? "offline"
-        : levelMode ? "level" : "online";
-
-      pillState.classList.toggle("ok", levelMode);
-
-      requestAnimationFrame(render);
+    if (nearNinety) {
+      lineAngle = 90;     // svislá
     }
 
-    setInterval(poll, POLL_MS);
-    poll();
-    render();
-  </script>
+    tickGroup.style.transform =
+      `translate(-50%, -50%) rotate(${lineAngle}deg)`;
+
+    // ======== BUBBLE BEHAVIOR ========
+    let bubbleX = 60 + ((shown / 90) * 70 - 35);
+
+    // pokud 90°, drž bublinu na středu vertikálně
+    if (nearNinety) {
+      bubbleX = 60;
+    }
+
+    bubbleDot.style.transform = `translate(${bubbleX}px, -18px)`;
+
+    // ======== HUD ========
+    pillState.textContent = !isOnline
+      ? "offline"
+      : levelMode ? "level" : "online";
+
+    pillState.classList.toggle("ok", levelMode);
+
+    requestAnimationFrame(render);
+  }
+
+  setInterval(poll, POLL_MS);
+  poll();
+  render();
+</script>
+
 </body>
 </html>
