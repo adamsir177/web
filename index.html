@@ -43,6 +43,7 @@
         radial-gradient(900px 900px at 50% 50%, transparent 55%, rgba(0,0,0,.65));
       mix-blend-mode: screen;
       opacity: .7;
+      z-index: 20;
     }
 
     .grain {
@@ -52,6 +53,7 @@
       background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='180'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='180' height='180' filter='url(%23n)' opacity='.18'/%3E%3C/svg%3E");
       opacity: .08;
       mix-blend-mode: overlay;
+      z-index: 20;
     }
 
     .hud {
@@ -66,7 +68,7 @@
       font-size: 12px;
       letter-spacing: .12em;
       text-transform: uppercase;
-      z-index: 10;
+      z-index: 30;
     }
 
     .pill {
@@ -83,6 +85,7 @@
       background: rgba(52,199,89,.12);
     }
 
+    /* NORMAL mode */
     .normal {
       position: absolute;
       inset: 0;
@@ -90,6 +93,7 @@
       place-items: center;
       opacity: 1;
       transition: opacity .18s ease;
+      z-index: 5;
     }
 
     .angleText {
@@ -98,7 +102,6 @@
       letter-spacing: -0.02em;
       font-variant-numeric: tabular-nums;
       line-height: 1;
-      z-index: 5;
     }
 
     .centerMarks {
@@ -136,7 +139,6 @@
       transform-origin: center;
       pointer-events: none;
       filter: drop-shadow(0 12px 26px rgba(0,0,0,.55));
-      z-index: 4;
     }
 
     .tick {
@@ -152,6 +154,7 @@
     .tick.left { left: 0; }
     .tick.right { right: 0; }
 
+    /* LEVEL mode */
     .level {
       position: absolute;
       inset: 0;
@@ -159,17 +162,34 @@
       place-items: center;
       opacity: 0;
       transition: opacity .18s ease;
+      z-index: 10;
     }
 
-    /* default: horizontal split (top/bottom) */
+    /* default = 0°: horizontal split (top/bottom) */
     .levelBg {
       position: absolute;
-      inset: -10vmax;
+      inset: 0; /* full screen */
       background: linear-gradient(0deg, #fff 50%, var(--green) 50%);
-      transform: rotate(0deg);
-      transform-origin: center;
+      z-index: 0;
     }
 
+    /* text shown in LEVEL mode */
+    .levelText {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      font-size: clamp(60px, 10vw, 120px);
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      font-variant-numeric: tabular-nums;
+      color: rgba(255,255,255,.98);
+      text-shadow: 0 10px 30px rgba(0,0,0,.28);
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    /* bubble */
     .bubbleWrap {
       position: relative;
       width: min(70vmin, 520px);
@@ -177,7 +197,7 @@
       display: grid;
       place-items: center;
       pointer-events: none;
-      z-index: 3;
+      z-index: 1;
     }
 
     .bubbleRing {
@@ -202,22 +222,16 @@
     .screen.isLevel .normal { opacity: 0; }
     .screen.isLevel .level  { opacity: 1; }
 
-    .screen.isLevel .angleText {
-      color: rgba(255,255,255,.98);
-      text-shadow: 0 10px 30px rgba(0,0,0,.25);
-    }
+    /* 0°: bubble hide */
+    .screen.isZero .bubbleWrap { display: none; }
 
-    /* ====== DESIGN DIFFERENCE ====== */
-
-    /* 0°: bublinu schovat, nech jen text 0° */
-    .screen.isZero .bubbleWrap {
-      display: none;
-    }
-
-    /* 90°: udělat vertikální split (left/right) */
+    /* 90°: use vertical split (left/right) WITHOUT rotation => no black borders */
     .screen.isNinety .levelBg {
-      transform: rotate(90deg);
+      background: linear-gradient(90deg, #fff 50%, var(--green) 50%);
     }
+
+    /* 90°: also hide bubble (as you asked) */
+    .screen.isNinety .bubbleWrap { display: none; }
   </style>
 </head>
 
@@ -242,6 +256,8 @@
 
     <div class="level">
       <div class="levelBg" id="levelBg"></div>
+      <div class="levelText" id="levelText">0°</div>
+
       <div class="bubbleWrap">
         <div class="bubbleRing"></div>
         <div class="bubbleDot" id="bubbleDot"></div>
@@ -264,6 +280,7 @@
 
     const screen = document.getElementById("screen");
     const angleText = document.getElementById("angleText");
+    const levelText = document.getElementById("levelText");
     const tickGroup = document.getElementById("tickGroup");
     const bubbleDot = document.getElementById("bubbleDot");
     const pillState = document.getElementById("pillState");
@@ -296,15 +313,14 @@
       screen.classList.toggle("isZero", isZero);
       screen.classList.toggle("isNinety", isNinety);
 
-      // text
       if (!isOnline) {
         angleText.textContent = "offline";
-      } else if (isZero) {
-        angleText.textContent = "0°";
-      } else if (isNinety) {
-        angleText.textContent = "90°";
+        levelText.textContent = "";
       } else {
         angleText.textContent = `${Math.round(shown)}°`;
+        if (isZero) levelText.textContent = "0°";
+        else if (isNinety) levelText.textContent = "90°";
+        else levelText.textContent = "";
       }
 
       // čára (mimo level režim se normálně otáčí)
@@ -315,11 +331,10 @@
       tickGroup.style.transform =
         `translate(-50%, -50%) rotate(${lineAngle}deg)`;
 
-      // bublina: necháme ji jen pro "level" 90° (pro 0° ji schovává CSS)
+      // bubble (když je schovaná, nevadí že se hýbe)
       const x = (lineAngle / 90) * 70 - 35;
       bubbleDot.style.transform = `translate(${60 + x}px, -18px)`;
 
-      // pill
       pillState.textContent = !isOnline
         ? "offline"
         : levelMode ? "level" : "online";
